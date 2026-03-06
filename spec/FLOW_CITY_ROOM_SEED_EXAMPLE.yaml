@@ -1,0 +1,316 @@
+organ_nail:
+  meta:
+    id: flow_city_room_seed_writer
+    type: organ_nail
+    family: seo_article_writer
+    version: S0.2-E0-A0-L1
+    protocol_version: flow_city/organ_nail_slot/v0.1
+    display_name: SEO Writer Room
+    summary: A writable room seed for long-form SEO article production.
+    tags: [flow_city, room_seed, content_generation, slot_based]
+    source:
+      forge_system: 灵钉冶坊
+      forge_method: 五步推演法
+      upstream_skill_family: seo_article_writer
+
+  core:
+    atomic_theory:
+      formula: "a1 -> a2 -> a3 -> a4 -> {pass: a5 | fail: [a3->a4]xN} -> a6 -> {pass: a7 | fail: [a5->a6]xN}"
+      structure: sequential_with_loops
+      state_chain: "无 -> 生 -> 构 -> 构 -> 判 -> 成 -> 判 -> 外"
+      content_facet_transitions: "L -> K -> K -> K -> L -> D -> L"
+      atoms:
+        a1: extract_intent
+        a2: generate_keyword_map
+        a3: compose_outline
+        a4: validate_outline
+        a5: write_body
+        a6: check_quality
+        a7: format_output
+      bridges:
+        - from: K
+          to: L
+          at: a5
+      loops:
+        - name: outline_retry
+          trigger: a4.failed
+          path: a3 -> a4
+          max_iterations: 3
+    scope:
+      description: Generate SEO article packages from a topic brief.
+      boundary:
+        includes:
+          - keyword mapping
+          - outline composition
+          - article drafting
+          - quality checking
+          - delivery packaging
+        excludes:
+          - CMS publishing
+          - live SERP crawling
+          - external backlink operations
+      applicable_contexts:
+        - content_marketing
+        - product_blog
+    io_schema:
+      input:
+        type: object
+        properties:
+          topic:
+            type: string
+          audience_hint:
+            type: string
+          target_word_count:
+            type: number
+        required: [topic]
+      output:
+        type: object
+        properties:
+          article:
+            type: object
+          seo_metadata:
+            type: object
+          delivery_info:
+            type: object
+    workflow_topology:
+      type: sequential_with_loops
+      invariants:
+        - must_start_with:intent_parse
+        - must_include:quality_check
+        - must_end_with:output_format
+      flow:
+        - step: 1
+          action: extract_seo_intent
+          output_key: intent
+        - step: 2
+          action: generate_keyword_map
+          output_key: keyword_map
+        - step: 3
+          action: compose_outline
+          output_key: outline
+        - step: 4
+          action: validate_outline_seo
+          output_key: outline_verdict
+          on_failure:
+            retry_from: 3
+            max_retries: 3
+        - step: 5
+          action: write_seo_body
+          output_key: draft
+        - step: 6
+          action: check_seo_quality
+          output_key: quality_report
+        - step: 7
+          action: format_seo_output
+          output_key: final_output
+    room_projection:
+      room_family: 炽心核
+      region_affinity: content_generation
+      workbench:
+        primary_panels: [brief, draft, verdict, package]
+        output_surface: final_package
+      visible_state:
+        - current_stage
+        - latest_note
+        - last_verdict
+        - output_ready
+
+  slots:
+    human_intervention:
+      enabled: true
+      cardinality: 0..n
+      hot_swappable: true
+      required_presence: false
+      accepted_module_types: [approval_gate, manual_edit_window, escalation_gate]
+    note_board:
+      enabled: true
+      cardinality: 0..1
+      hot_swappable: true
+      required_presence: false
+      accepted_module_types: [note_board]
+    logbook:
+      enabled: true
+      cardinality: 1
+      hot_swappable: false
+      required_presence: true
+      accepted_module_types: [event_log]
+    library:
+      enabled: true
+      cardinality: 0..1
+      hot_swappable: true
+      required_presence: false
+      accepted_module_types: [template_pack, reference_index]
+    machinery:
+      enabled: true
+      cardinality: 1..n
+      hot_swappable: true
+      required_presence: true
+      accepted_module_types: [llm_executor, retriever, formatter, quality_guard]
+    monitoring:
+      enabled: true
+      cardinality: 0..n
+      hot_swappable: true
+      required_presence: false
+      accepted_module_types: [self_check, failure_detector]
+    memory_patch:
+      enabled: true
+      cardinality: 0..n
+      hot_swappable: true
+      required_presence: false
+      accepted_module_types: [recent_context_memory, preference_memory, room_summary_memory]
+
+  mounted_modules:
+    human_intervention:
+      - module_id: approval_gate_quality
+        type: approval_gate
+        enabled: true
+        config:
+          trigger_stage: check_seo_quality
+          condition: quality_report.score < 0.75
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [quality_report]
+          writes: [approval_status]
+          emits: [human.intervened]
+    note_board:
+      - module_id: local_note_board
+        type: note_board
+        enabled: true
+        config:
+          accepted_note_types: [instruction, constraint, preference, alert]
+          read_points: [before_execution, on_failure, before_output]
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [notes]
+          writes: [notes]
+          emits: [note.read, note.written]
+    logbook:
+      - module_id: event_log_default
+        type: event_log
+        enabled: true
+        config:
+          event_types: [room.entered, step.started, step.completed, step.failed, note.read, human.intervened]
+        lifecycle:
+          mount_phase: init_only
+          removable: false
+          replaceable: false
+        permissions:
+          reads: [room_state]
+          writes: [event_stream]
+          emits: [step.started, step.completed, step.failed]
+    library:
+      - module_id: seo_template_pack
+        type: template_pack
+        enabled: true
+        config:
+          asset_groups: [title_templates, outline_templates, meta_templates]
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [library_assets]
+          writes: []
+          emits: []
+    machinery:
+      - module_id: writer_llm
+        type: llm_executor
+        enabled: true
+        config:
+          provider: openai
+          role: drafting
+        lifecycle:
+          mount_phase: init_only
+          removable: false
+          replaceable: true
+        permissions:
+          reads: [workbench, library_assets]
+          writes: [draft]
+          emits: [step.completed]
+      - module_id: seo_quality_guard
+        type: quality_guard
+        enabled: true
+        config:
+          threshold: 0.75
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [draft]
+          writes: [quality_report]
+          emits: [step.failed]
+    monitoring:
+      - module_id: self_check_default
+        type: self_check
+        enabled: true
+        config:
+          checks: [input_validation, output_completeness]
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [input, output]
+          writes: [warnings]
+          emits: [step.failed]
+    memory_patch:
+      - module_id: room_summary_memory
+        type: room_summary_memory
+        enabled: true
+        config:
+          summarize_after: output_format
+        lifecycle:
+          mount_phase: runtime_allowed
+          removable: true
+          replaceable: true
+        permissions:
+          reads: [event_stream, final_output]
+          writes: [room_memory]
+          emits: []
+
+  event_protocol:
+    event_types:
+      - room.entered
+      - room.left
+      - step.started
+      - step.completed
+      - step.failed
+      - note.read
+      - note.written
+      - human.intervened
+      - handoff.emitted
+      - rollback.triggered
+    payload_minimum:
+      required: [event_id, room_id, timestamp, actor, event_type]
+
+  mutation_rules:
+    immutable_paths:
+      - meta.id
+      - meta.type
+      - core.atomic_theory
+      - core.scope
+      - core.io_schema
+      - core.workflow_topology.invariants
+    slot_constraints:
+      - logbook must always have exactly one mounted module
+      - machinery must have at least one llm_executor or equivalent execution module
+      - note_board may be empty without invalidating the room
+    compatibility_rules:
+      - mounted module type must belong to accepted_module_types of its slot
+      - mounted modules may not widen core.scope.boundary.excludes
+      - mounted modules may not replace core.workflow_topology
+      - human_intervention modules may pause execution but may not rewrite atomic_theory
+    lifecycle_rules:
+      init_phase:
+        allow: [mount_module, unmount_optional_module, configure_module]
+        deny: [mutate_core]
+      runtime_phase:
+        allow: [write_note, trigger_approval, patch_preference, toggle_optional_module]
+        deny: [mutate_core, replace_workflow_topology, widen_scope_boundary]

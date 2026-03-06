@@ -1,0 +1,271 @@
+protocol: flow_city/organ_nail_slot/v0.1
+kind: organ_nail_schema
+purpose: >
+  Stable core plus pluggable slot modules for Flow City room seeds.
+  This is a data structure standard, not a one-shot interaction script.
+
+definitions:
+  organ_nail:
+    description: Room seed runtime spec derived from a Lingding organ nail.
+    required:
+      - meta
+      - core
+      - slots
+      - mounted_modules
+      - mutation_rules
+
+  meta:
+    type: object
+    required: [id, type, family, version, protocol_version]
+    fields:
+      id: string
+      type:
+        enum: [organ_nail]
+      family: string
+      version: string
+      protocol_version:
+        const: flow_city/organ_nail_slot/v0.1
+      display_name: string
+      summary: string
+      tags:
+        type: array
+        items: string
+      source:
+        type: object
+        fields:
+          forge_system: string
+          forge_method: string
+          upstream_skill_family: string
+
+  core:
+    type: object
+    description: Immutable room skeleton.
+    required:
+      - atomic_theory
+      - scope
+      - io_schema
+      - workflow_topology
+      - room_projection
+    fields:
+      atomic_theory:
+        type: object
+        required: [formula, structure]
+        fields:
+          formula: string
+          structure: string
+          state_chain: string
+          content_facet_transitions: string
+          atoms:
+            type: object
+            additionalProperties: string
+          bridges:
+            type: array
+            items: object
+          loops:
+            type: array
+            items: object
+      scope:
+        type: object
+        required: [description, boundary]
+        fields:
+          description: string
+          boundary:
+            type: object
+            fields:
+              includes:
+                type: array
+                items: string
+              excludes:
+                type: array
+                items: string
+          applicable_contexts:
+            type: array
+            items: string
+      io_schema:
+        type: object
+        required: [input, output]
+        fields:
+          input: object
+          output: object
+      workflow_topology:
+        type: object
+        required: [type, flow, invariants]
+        fields:
+          type:
+            enum:
+              - sequential
+              - sequential_with_loops
+              - sequential_with_parallel
+              - sequential_with_parallel_and_loops
+          flow:
+            type: array
+            items: object
+          invariants:
+            type: array
+            items: string
+      room_projection:
+        type: object
+        required: [room_family, region_affinity, workbench]
+        fields:
+          room_family: string
+          region_affinity: string
+          workbench:
+            type: object
+            fields:
+              primary_panels:
+                type: array
+                items: string
+              output_surface: string
+          visible_state:
+            type: array
+            items: string
+
+  slots:
+    type: object
+    description: Declared pluggable positions. Slot contract is stable even when empty.
+    required:
+      - human_intervention
+      - note_board
+      - logbook
+      - library
+      - machinery
+      - monitoring
+      - memory_patch
+    slot_shape: &slot_shape
+      enabled: boolean
+      cardinality: string
+      hot_swappable: boolean
+      required_presence: boolean
+      accepted_module_types:
+        type: array
+        items: string
+    fields:
+      human_intervention: *slot_shape
+      note_board: *slot_shape
+      logbook: *slot_shape
+      library: *slot_shape
+      machinery: *slot_shape
+      monitoring: *slot_shape
+      memory_patch: *slot_shape
+
+  mounted_modules:
+    type: object
+    description: Actual mounted modules inside each slot.
+    module_shape: &module_shape
+      module_id: string
+      type: string
+      enabled: boolean
+      config: object
+      lifecycle:
+        type: object
+        fields:
+          mount_phase:
+            enum: [init_only, runtime_allowed]
+          removable: boolean
+          replaceable: boolean
+      permissions:
+        type: object
+        fields:
+          reads:
+            type: array
+            items: string
+          writes:
+            type: array
+            items: string
+          emits:
+            type: array
+            items: string
+    fields:
+      human_intervention:
+        type: array
+        items: *module_shape
+      note_board:
+        type: array
+        items: *module_shape
+      logbook:
+        type: array
+        items: *module_shape
+      library:
+        type: array
+        items: *module_shape
+      machinery:
+        type: array
+        items: *module_shape
+      monitoring:
+        type: array
+        items: *module_shape
+      memory_patch:
+        type: array
+        items: *module_shape
+
+  event_protocol:
+    type: object
+    description: Common observable events emitted by rooms and modules.
+    fields:
+      event_types:
+        type: array
+        items:
+          enum:
+            - room.entered
+            - room.left
+            - step.started
+            - step.completed
+            - step.failed
+            - note.read
+            - note.written
+            - module.mounted
+            - module.unmounted
+            - human.intervened
+            - handoff.emitted
+            - rollback.triggered
+      payload_minimum:
+        required: [event_id, room_id, timestamp, actor, event_type]
+
+  mutation_rules:
+    type: object
+    description: Restricted editing contract.
+    required:
+      - immutable_paths
+      - slot_constraints
+      - compatibility_rules
+      - lifecycle_rules
+    fields:
+      immutable_paths:
+        type: array
+        items: string
+      slot_constraints:
+        type: array
+        items: string
+      compatibility_rules:
+        type: array
+        items: string
+      lifecycle_rules:
+        type: object
+        fields:
+          init_phase:
+            type: object
+          runtime_phase:
+            type: object
+
+recommended_defaults:
+  immutable_paths:
+    - meta.id
+    - meta.type
+    - core.atomic_theory
+    - core.scope
+    - core.io_schema
+    - core.workflow_topology.invariants
+  compatibility_rules:
+    - module type must be allowed by the target slot
+    - removing a required_presence slot instance is forbidden
+    - mounted modules must not expand scope.excludes
+    - mounted modules must not mutate core.io_schema
+    - mounted modules may pause or annotate workflow but must not replace workflow_topology
+    - human_intervention modules may gate execution but must not rewrite atomic_theory
+  lifecycle_rules:
+    init_phase:
+      allow: [mount_module, unmount_optional_module, configure_module]
+      deny: [mutate_core]
+    runtime_phase:
+      allow: [write_note, trigger_approval, patch_preference, toggle_optional_module]
+      deny: [mutate_core, replace_workflow_topology, widen_scope_boundary]
